@@ -6,6 +6,16 @@ public class PlayerBallCollect : MonoBehaviour {
     public bool hasBall = false;
     public float throwStrength = 10f;
 
+    private float maxCharge = 2.5f;
+    private float currentCharge = 0;
+
+    private bool charging = false;
+
+    private Color normalColor = new Color(0, 0, 0);
+    private Color chargedColor = new Color(.33f, .33f, 0);
+
+    public float startThrowStrength = 1;
+
 	// Use this for initialization
 	void Start () {
 	
@@ -41,10 +51,13 @@ public class PlayerBallCollect : MonoBehaviour {
             if (Input.GetMouseButtonDown(0))
             {
                 hasBall = false;
-                GameObject ball = this.gameObject.transform.Find("MainCamera/Ball").gameObject;
-                ball.GetComponent<Rigidbody>().isKinematic = false;
-                ball.transform.parent = null;
-                ball.GetComponent<Rigidbody>().AddForce((ball.transform.position - transform.position).normalized * throwStrength);
+                GameObject ball = this.gameObject.transform.Find("Ball").gameObject;
+                ball.transform.parent = this.transform.Find("MainCamera").transform;
+                ball.transform.localPosition = new Vector3(0, 0, 2);
+
+                charging = true;
+
+                StartCoroutine("ChargeAndThrow", ball);
             }
 
             //Handle dribble
@@ -64,7 +77,7 @@ public class PlayerBallCollect : MonoBehaviour {
             Debug.Log("Ball received");
             //Make this player now the parent of the ball.
             col.gameObject.GetComponent<Rigidbody>().velocity = new Vector3(0, 0, 0);
-            col.gameObject.transform.parent = this.transform.Find("MainCamera").transform;
+            col.gameObject.transform.parent = this.transform;
             
             //This stops it from moving stupidly. Makes it not handle collisions.
             //Also allows the ball to properly follow the player.
@@ -76,14 +89,32 @@ public class PlayerBallCollect : MonoBehaviour {
         }
     }
 
-    private IEnumerator ChargeAndThrow()
+    private IEnumerator ChargeAndThrow(GameObject ball)
     {
-        Time.deltaTime;
-        yield return null;
-
-        if (Input.GetMouseButtonUp(0))
+        while (charging)
         {
+            currentCharge += Time.deltaTime;
+            currentCharge = Mathf.Clamp(currentCharge, 0, maxCharge);
 
+            Color chargeColor = Color.Lerp(normalColor, chargedColor, currentCharge/maxCharge);
+
+            ball.GetComponent<Renderer>().material.SetColor("_EmissionColor", chargeColor);
+
+            Debug.Log(currentCharge);
+
+            yield return null;
+
+            if (Input.GetMouseButtonUp(0))
+            {
+                charging = false;
+                ball.GetComponent<Rigidbody>().isKinematic = false;
+                ball.transform.parent = null;
+//                Debug.Log((ball.transform.position - transform.position).normalized * throwStrength * (currentCharge / maxCharge + startThrowStrength));
+                ball.GetComponent<Rigidbody>().AddForce((ball.transform.position - transform.position).normalized * throwStrength * (currentCharge / maxCharge + startThrowStrength), ForceMode.VelocityChange);
+                currentCharge = 0;
+                ball.GetComponent<Renderer>().material.SetColor("_EmissionColor", normalColor);
+
+            }
         }
     }
 }
